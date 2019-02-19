@@ -1,16 +1,23 @@
 #Network example
-hosts:
-    - name: host1
-      image: apache
-      volume: 
-        - /home/aaubry/Docker/apache1/html/
-        - /var/www/html/
+network:
+    name: example_network
 
-    - name: host2
-      image: apache
-      volume: 
-        - /home/aaubry/Docker/apache2/html/
-        - /var/www/html/
+    hosts:
+        - name: host1
+          image: apache
+          volume: 
+            - /home/aaubry/Docker/apache1/html/
+            - /var/www/html/
 
-    - name: host3
-      image: apache
+        - name: host2
+          image: apache
+          volume: 
+            - /home/aaubry/Docker/apache2/html/
+            - /var/www/html/
+
+        - name: host3
+          image: apache
+    
+    links:
+        -host1:v0:192.168.1.1/24-host2:v0:192.168.1.2/24
+        -host1:v1:192.168.2.1/24-host3:v0;192.168.2.1/24
