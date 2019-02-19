@@ -1,0 +1,16 @@
+#Network example
+hosts:
+    - name: host1
+      image: apache
+      volume: 
+        - /home/aaubry/Docker/apache1/html/
+        - /var/www/html/
+
+    - name: host2
+      image: apache
+      volume: 
+        - /home/aaubry/Docker/apache2/html/
+        - /var/www/html/
+
+    - name: host3
+      image: apache
