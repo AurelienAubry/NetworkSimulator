@@ -2,6 +2,9 @@
 network:
     name: example_network
 
+    bridges:
+        - name: bridge1
+          address: 192.168.0.1/24
     hosts:
         - name: host1
           image: apache
@@ -19,5 +22,5 @@ network:
           image: apache
     
     links:
-        -host1:v0:192.168.1.1/24-host2:v0:192.168.1.2/24
-        -host1:v1:192.168.2.1/24-host3:v0;192.168.2.1/24
+        - host1:v0:192.168.1.1/24-host2:v0:192.168.1.2/24
+        - host1:v1:192.168.2.1/24-host3:v0:192.168.2.1/24
