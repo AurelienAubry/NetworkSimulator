@@ -25,11 +25,6 @@ class Network:
 					self.hosts.append(Node(host['name'], host['image'], host['volume']))
 				else:
 					self.hosts.append(Node(host['name'], host['image'], None))
-				
-			# Parse the BRIDGES			
-			self.bridges = []
-			for bridge in topology['bridges']:
-				self.bridges.append(Bridge(bridge['name'], bridge['address']))
 
 			# Parse the LINKS and INTERFACES
 			self.links = []
@@ -53,8 +48,8 @@ class Network:
 						host2 = host
 				
 				# Interfaces with the given name / host / adress 
-				interface1 = Interface(host1.get_name() + str(interface1_info[1]), host1, interface1_info[2], host1.get_name() )
-				interface2 = Interface(host2.get_name() + str(interface2_info[1]), host2, interface2_info[2], host2.get_name() )
+				interface1 = NodeInterface(host1.get_name() + str(interface1_info[1]), host1, interface1_info[2], host1.get_name() )
+				interface2 = NodeInterface(host2.get_name() + str(interface2_info[1]), host2, interface2_info[2], host2.get_name() )
 
 				# Register interfaces
 				self.interfaces.append(interface1)
@@ -62,6 +57,35 @@ class Network:
 
 				# Register link
 				self.links.append(Link(interface1, interface2))
+
+			# Parse the BRIDGES			
+			self.bridges = []
+			for bridge in topology['bridges']:
+
+				current_bridge = Bridge(bridge['name'], bridge['address'])
+				
+				self.bridges.append(current_bridge)
+
+				for link in bridge['links']:
+					
+					host_interface_info = link.split(':')
+					host = Node(None, None, None)
+
+					for h in self.hosts :
+						if h.get_name() == host_interface_info[0]:
+							host = h
+
+					host_interface = NodeInterface(host.get_name() + str(host_interface_info[1]), host, host_interface_info[2], host.get_name())
+					bridge_interface = BridgeInterface(current_bridge.get_name() + host.get_name() + str(host_interface_info[1]), current_bridge, bridge['address'], current_bridge.get_name())
+					
+					# Register interfaces
+					self.interfaces.append(host_interface)
+					self.interfaces.append(bridge_interface)
+					
+					# Register link
+					self.links.append(Link(host_interface, bridge_interface))
+				
+				
 	
 	# Start the HOSTS
 	def start_hosts(self, client, client_api):
@@ -111,7 +135,7 @@ class Bridge:
 	def __init__(self, name, address):
 		self.name = name
 		self.address = address
-	
+		self.interfaces = []
 
 	# Create and start the bridge
 	def start(self, ipr):
@@ -128,10 +152,13 @@ class Bridge:
 		ipr.link("set", index=dev, state="up")
 		
 		# Set the bridge IP address
-		# ipr.addr("add", index=dev, address=bridge_address_mask[0],mask=int(bridge_address_mask[1]))
+		ipr.addr("add", index=dev, address=bridge_address_mask[0],mask=int(bridge_address_mask[1]))
 
 		cprint(self.name + ' added', 'green', end='\n')
 	
+	# Getters
+	def get_name(self):
+		return self.name
 
 	# Remove the bridge
 	def stop(self, ipr):
@@ -166,25 +193,51 @@ class Link:
 		idx1 = ipr.link_lookup(ifname = self.interface1.get_name())[0]
 		idx2 = ipr.link_lookup(ifname = self.interface2.get_name())[0]
 
-		# Put the interfaces in their name_space
-		ipr.link('set', index=idx1, net_ns_fd = self.interface1.get_net_ns())
-		ipr.link('set', index=idx2, net_ns_fd = self.interface2.get_net_ns())
-
 		cprint("Link "  + self.interface1.get_net_ns() + " <-> " + self.interface2.get_net_ns() + ' created', 'green', end='\n')
+		
+		# Interface 1
+		if isinstance(self.interface1, NodeInterface):
+			# Put the interface in is name_space
+			ipr.link('set', index=idx1, net_ns_fd = self.interface1.get_net_ns())
 
-		# Get the hosts
-		node1 = client.containers.get(self.interface1.get_node().get_name())
-		node2 = client.containers.get(self.interface2.get_node().get_name())
+			# Get the host
+			node1 = client.containers.get(self.interface1.get_node().get_name())
 
-		# Activate interface 1 and assign ip address
-		node1.exec_run("ip link set \"" + self.interface1.get_name() +"\" up")
-		node1.exec_run("ip addr add " + self.interface1.get_address() +" dev " + self.interface1.get_name())
+			# Activate interface 1 and assign ip address
+			node1.exec_run("ip link set \"" + self.interface1.get_name() +"\" up")
+			node1.exec_run("ip addr add " + self.interface1.get_address() +" dev " + self.interface1.get_name())
 
-		# Activate interface 2 and assign ip address
-		node2.exec_run("ip link set \"" + self.interface2.get_name() +"\" up")
-		node2.exec_run("ip addr add " + self.interface2.get_address() +" dev " + self.interface2.get_name())
+		
+			
 
 
+		# Interface 2
+		if isinstance(self.interface2, NodeInterface):
+			# Put the interface in is name_space
+			ipr.link('set', index=idx2, net_ns_fd = self.interface2.get_net_ns())
+
+			# Get the hosts
+			node2 = client.containers.get(self.interface2.get_node().get_name())
+
+			# Activate interface 2 and assign ip address
+			node2.exec_run("ip link set \"" + self.interface2.get_name() +"\" up")
+			node2.exec_run("ip addr add " + self.interface2.get_address() +" dev " + self.interface2.get_name())
+
+		if isinstance(self.interface1, BridgeInterface):
+			bridge_idx = ipr.link_lookup(ifname = self.interface1.get_bridge().get_name())[0]
+			ipr.link("set", index=idx1, state="up")
+			ipr.link("set", index=idx1, master=bridge_idx)
+
+		if isinstance(self.interface2, BridgeInterface):
+			bridge_idx = ipr.link_lookup(ifname = self.interface2.get_bridge().get_name())[0]
+			ipr.link("set", index=idx2, state="up")
+			ipr.link("set", index=idx2, master=bridge_idx)
+
+		
+
+		
+
+		
 	#def remove(self, ipr):
 	#	idx1 = ipr.link_lookup(ifname = self.interface1.get_name())[0]
 	#	idx2 = ipr.link_lookup(ifname = self.interface2.get_name())[0]
@@ -194,20 +247,17 @@ class Link:
 
 
 # ===================== #
-#      Interface        #
+#      Interfaces       #
 # ===================== #
 
 class Interface:
 	
 	# Init
-	def __init__(self, name, node, address, net_ns):
+	def __init__(self, name, address, net_ns):
 		self.name = name
-		self.node = node
 		self.address = address
 		self.net_ns = net_ns
-		self.node.interfaces.append(self)
-
-
+		
 	# Getters
 	def get_name(self):
 		return self.name
@@ -215,12 +265,28 @@ class Interface:
 	def get_net_ns(self):
 		return self.net_ns
 
-	def get_node(self):
-		return self.node
-
 	def get_address(self):
 		return self.address
 
+class NodeInterface(Interface):
+
+	def __init__(self, name, node, address, net_ns):
+		super().__init__(name, address, net_ns)
+		self.node = node
+		self.node.interfaces.append(self)
+
+	def get_node(self):
+		return self.node
+
+class BridgeInterface(Interface):
+
+	def __init__(self, name, bridge, address, net_ns):
+		super().__init__(name, address, net_ns)
+		self.bridge = bridge
+		self.bridge.interfaces.append(self)
+
+	def get_bridge(self):
+		return self.bridge
 
 
 # ========================== #
