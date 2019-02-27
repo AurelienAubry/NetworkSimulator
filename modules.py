@@ -60,7 +60,7 @@ class Network:
 				self.interfaces.append(interface1)
 				self.interfaces.append(interface2)
 
-				# Resgister link
+				# Register link
 				self.links.append(Link(interface1, interface2))
 	
 	# Start the HOSTS
@@ -268,7 +268,16 @@ class Node:
 		pid = inspect['State']['Pid']
 
 		# For Docker/Netns networking
-		os.remove("/var/run/netns/"+self.name)
+		if not os.path.exists("/var/run/netns"):
+			os.makedirs("/var/run/netns")
+
+		# os.makedirs("/var/run/netns")
+
+		if os.path.exists("/var/run/netns/"+self.name):
+			os.remove("/var/run/netns/"+self.name)
+
+
+
 		os.symlink("/proc/" + str(pid) + "/ns/net", "/var/run/netns/"+self.name)
 
 		cprint(self.name + ' started', 'green', end='\n')
@@ -286,5 +295,6 @@ class Node:
 	def stop(self, client):
 		client.containers.get(self.name).stop(timeout=0)
 		client.containers.get(self.name).remove()
+		os.remove("/var/run/netns/"+self.name)
 		cprint(self.name + ' stopped', 'green', end='\n')
 		
