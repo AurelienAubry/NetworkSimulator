@@ -320,12 +320,12 @@ class Node:
 			container_volume_path = self.volume[1]
 
 			# Run the container with the given image, name and volume
-			client.containers.run(self.image, name=self.name, volumes={local_volume_path : {'bind': container_volume_path, 'mode':'rw'}}, privileged=True, detach=True)
+			client.containers.run(self.image, name=self.name, volumes={local_volume_path : {'bind': container_volume_path, 'mode':'rw'}}, privileged=True, detach=True, tty=True, stdin_open=True)
 		
 		# Container without volume
 		else :
 			# Run the container with the given image and name
-			client.containers.run(self.image, name=self.name, privileged=True, detach=True)
+			client.containers.run(self.image, name=self.name, privileged=True, detach=True, tty=True, stdin_open=True)
 		
 		# Get the container
 		inspect = client_api.inspect_container(self.name)

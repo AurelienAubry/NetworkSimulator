@@ -21,6 +21,7 @@ parser.add_argument("cmd", help="command to run : start, stop")
 parser.add_argument("path", help="network file location")
 args = parser.parse_args()
 
+os.system('echo 0 > /proc/sys/net/bridge/bridge-nf-call-iptables')
 
 # Start the network
 if args.cmd == 'start':
